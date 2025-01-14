@@ -27,7 +27,7 @@ public class DeviceController : ControllerBase
         }
         
         _deviceService.AddDevice(device);
-        _logger.LogInformation($"Устройство успешно добавлено. ID: {device.Id}, Name: {device.Name}");
+        _logger.LogInformation("Устройство успешно добавлено. ID: {DeviceId}, Name: {DeviceName}", device.Id, device.Name);
 
         return CreatedAtAction(nameof(GetDeviceLogs), new { deviceId = device.Id }, device);
     }
@@ -37,7 +37,7 @@ public class DeviceController : ControllerBase
     {
         _logger.LogInformation("Извлечение всех устройств...");
         var devices = _deviceService.GetAllDevices();
-        _logger.LogInformation($"Извлечено {devices.Count()} устройств.");
+        _logger.LogInformation("Извлечено {DeviceCount} устройств.", devices.Count());
 
         return Ok(devices);
     }
@@ -51,30 +51,70 @@ public class DeviceController : ControllerBase
             return BadRequest("Необходим ID устройства.");
         }
 
-        _logger.LogInformation($"Извлечение записей для устройства с ID: {deviceId}");
+        _logger.LogInformation("Извлечение записей для устройства с ID: {DeviceId}", deviceId);
         var logs = _deviceService.GetDeviceLogs(deviceId);
 
         if (!logs.Any())
         {
-            _logger.LogWarning($"Не найдено записей для устройства с ID: {deviceId}");
+            _logger.LogWarning("Не найдено записей для устройства с ID: {DeviceId}", deviceId);
             return NotFound($"Не найдено записей для устройства с ID: {deviceId}");
         }
         
-        _logger.LogInformation($"Извлечено {logs.Count()} записей для устройства с ID: {deviceId}");
+        _logger.LogInformation("Извлечено {LogCount} записей для устройства с ID: {DeviceId}", logs.Count(), deviceId);
         return Ok(logs);
     }
 
-    [HttpDelete("{deviceId/remove}")]
+    [HttpDelete("{deviceId}")]
     public IActionResult RemoveRecords(string deviceId, [FromQuery] DateTime olderThan)
     {
         if (string.IsNullOrWhiteSpace(deviceId))
         {
             _logger.LogWarning("Не указан ID устройства для удаления записей.");
-            return BadRequest("Необходим ID устройства");
+            return BadRequest("Необходим ID устройства.");
         }
         
-        _logger.LogInformation($"Удаление записей старше чем {olderThan} для устройства с ID: {deviceId}");
-        _logger.LogInformation($"Записи были успешно удалены для устройства с ID: {deviceId}");
+        if (olderThan == default)
+        {
+            _logger.LogWarning("Параметр olderThan не указан или некорректен.");
+            return BadRequest("Необходим параметр olderThan.");
+        }
+
+        _logger.LogInformation("Удаление записей старше чем {OlderThan} для устройства с ID: {DeviceId}", olderThan, deviceId);
+        _deviceService.RemoveRecords(deviceId, olderThan);
+        _logger.LogInformation("Записи успешно удалены для устройства с ID: {DeviceId}.", deviceId);
+
         return Ok($"Записи для устройства {deviceId} старше чем {olderThan} были удалены.");
+    }
+
+    [HttpPost("backup")]
+    public async Task<IActionResult> BackupDataAsync([FromQuery] string filepath = "backup.json")
+    {
+        try
+        {
+            await _deviceService.BackupToFileAsync(filepath);
+            _logger.LogInformation("Данные успешно сохранены в файл: {FilePath}", filepath);
+            return Ok($"Данные успешно сохранены в файл: {filepath}");
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Ошибка при сохранении данных в файл {FilePath}.", filepath);
+            return StatusCode(500, "Произошла ошибка при сохранении данных.");
+        }
+    }
+
+    [HttpPost("restore")]
+    public async Task<IActionResult> RestoreDataAsync([FromQuery] string filepath = "backup.json")
+    {
+        try 
+        {
+            await _deviceService.RestoreFromFileAsync(filepath);
+            _logger.LogInformation("Данные успешно восстановлены из файла: {FilePath}.", filepath);
+            return Ok($"Данные успешно восстановлены из файла: {filepath}");
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Ошибка при восстановлении данных из файла {FilePath}.", filepath);
+            return Problem("500", "Произошла ошибка при восстановлении данных.");
+        }
     }
 }

@@ -8,4 +8,6 @@ public interface IDeviceService
     IEnumerable<Device> GetAllDevices();
     IEnumerable<Device> GetDeviceLogs(string deviceId);
     void RemoveRecords(string deviceId, DateTime olderThan);
+    Task BackupToFileAsync(string filepath);
+    Task RestoreFromFileAsync(string filepath);
 }

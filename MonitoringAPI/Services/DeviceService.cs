@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
 using MonitoringAPI.Models;
 
 namespace MonitoringAPI.Services;
@@ -70,6 +71,51 @@ public class DeviceService : IDeviceService
         else
         {
             _logger.LogWarning($"Нет устройства с ID: {deviceId} для удаления записей.");
+        }
+    }
+
+    public async Task BackupToFileAsync(string filepath)
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(_devices, new JsonSerializerOptions { WriteIndented = true });
+            await File.WriteAllTextAsync(filepath, json);
+            _logger.LogInformation($"Данные успешно были бэкапированы в {filepath}");
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, $"Ошибка во время создания бэкапа в {filepath}");
+            throw;
+        }
+    }
+
+    public async Task RestoreFromFileAsync(string filepath)
+    {
+        try
+        {
+            if (!File.Exists(filepath))
+            {
+                _logger.LogWarning($"Файл по пути {filepath} не существует. Ошибка восстановления.");
+                return;
+            }
+
+            var json = await File.ReadAllTextAsync(filepath);
+            var restoredData = JsonSerializer.Deserialize<ConcurrentDictionary<string, List<Device>>>(json);
+
+            if (restoredData != null)
+            {
+                _devices.Clear();
+                foreach (var device in restoredData)
+                {
+                    _devices[device.Key] = device.Value;
+                }
+                _logger.LogInformation($"Данные успешно восстановлены из {filepath}.");
+            }
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, $"Ошибка в восстановлении данных из {filepath}.");
+            throw;
         }
     }
 }
