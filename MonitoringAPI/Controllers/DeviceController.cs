@@ -29,7 +29,7 @@ public class DeviceController : ControllerBase
         _deviceService.AddDevice(device);
         _logger.LogInformation("Устройство успешно добавлено. ID: {DeviceId}, Name: {DeviceName}", device.Id, device.Name);
 
-        return CreatedAtAction(nameof(GetDeviceLogs), new { deviceId = device.Id }, device);
+        return  Ok(device);
     }
 
     [HttpGet]
